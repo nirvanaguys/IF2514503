@@ -12,6 +12,13 @@ import '../../orders/services/order_service.dart';
 import '../../seller/screens/register_seller_screen.dart';
 import '../../seller/screens/seller_dashboard_screen.dart';
 import '../../seller/services/seller_service.dart';
+import '../../subscription/models/subscription_models.dart';
+import '../../subscription/screens/subscription_plans_screen.dart';
+import '../../subscription/services/subscription_service.dart';
+import '../../admin/screens/admin_dashboard_screen.dart';
+import '../../admin/services/admin_service.dart';
+import '../../diagnosis/screens/diagnosis_history_screen.dart';
+import '../../diagnosis/services/diagnosis_service.dart';
 import '../data/profile_demo_data.dart';
 import '../widgets/widgets.dart';
 import 'edit_profile_screen.dart';
@@ -26,9 +33,15 @@ class ProfileScreen extends StatefulWidget {
 class _ProfileScreenState extends State<ProfileScreen> {
   final _authService = AuthService();
   final _orderService = OrderService();
+  final _subscriptionService = SubscriptionService();
+  final _adminService = AdminService();
+  final _diagnosisService = DiagnosisService();
   UserProfile? _currentProfile;
   bool _isLoading = false;
   int _activeOrderCount = 0;
+  QuotaInfo _quotaInfo = QuotaInfo.freeDefault;
+  bool _isAdmin = false;
+  int _completedDiagnosis = 0;
   StreamSubscription<supa.AuthState>? _authSubscription;
 
   @override
@@ -64,13 +77,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
     // Ambil jumlah pesanan aktif dari data nyata
     final user = _authService.currentUser;
     int orderCount = 0;
+    QuotaInfo quotaInfo = QuotaInfo.freeDefault;
     if (user != null) {
       orderCount = await _orderService.countActiveOrders(user.id);
+      quotaInfo = await _subscriptionService.getQuotaInfo(user.id);
+    }
+    final isAdmin = await _adminService.isCurrentUserAdmin();
+    int diagnosisCount = 0;
+    if (user != null) {
+      diagnosisCount = await _diagnosisService.countDiagnoses(user.id);
     }
     if (mounted) {
       setState(() {
         _currentProfile = profile;
         _activeOrderCount = orderCount;
+        _quotaInfo = quotaInfo;
+        _isAdmin = isAdmin;
+        _completedDiagnosis = diagnosisCount;
         _isLoading = false;
       });
     }
@@ -296,21 +319,29 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ProfileUserCard(
                       userName: _isLoading ? 'Memuat profil...' : displayName,
                       email: _isLoading ? '...' : displayEmail,
-                      planBadge: ProfileDemoData.planBadge,
+                      planBadge: _quotaInfo.isPremium
+                          ? 'Premium Aktif ✨'
+                          : ProfileDemoData.planBadge,
                       onEditTap: _openEditProfile,
                     ),
                     const SizedBox(height: 12),
 
                     // 2. Bento Key Stats
                     ProfileStatsBento(
-                      completedDiagnosis: ProfileDemoData.completedDiagnosis,
+                      completedDiagnosis: _completedDiagnosis,
                       activeOrders: _activeOrderCount,
-                      remainingQuota: ProfileDemoData.remainingQuota,
-                      totalQuota: ProfileDemoData.totalQuota,
-                      onDiagnosisStatsTap: () => _showMessage(
-                        context,
-                        'Riwayat diagnosis lengkap akan hadir di tahap riwayat.',
-                      ),
+                      remainingQuota: _quotaInfo.remaining,
+                      totalQuota: _quotaInfo.quotaLimit,
+                      onDiagnosisStatsTap: () {
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const DiagnosisHistoryScreen(),
+                              ),
+                            )
+                            .then((_) => _loadProfile());
+                      },
                       onOrdersStatsTap: () {
                         Navigator.of(context)
                             .push(
@@ -320,19 +351,31 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             )
                             .then((_) => _loadProfile());
                       },
-                      onQuotaStatsTap: () => _showMessage(
-                        context,
-                        'Sisa kuota gratis Anda: ${ProfileDemoData.remainingQuota}/${ProfileDemoData.totalQuota} kali.',
-                      ),
+                      onQuotaStatsTap: () {
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const SubscriptionPlansScreen(),
+                              ),
+                            )
+                            .then((_) => _loadProfile());
+                      },
                     ),
                     const SizedBox(height: 12),
 
                     // 3. Upgrade Premium Banner
                     ProfileUpgradeBanner(
-                      onUpgradeTap: () => _showMessage(
-                        context,
-                        'Paket langganan Premium belum dibuka pada versi demo.',
-                      ),
+                      onUpgradeTap: () {
+                        Navigator.of(context)
+                            .push(
+                              MaterialPageRoute(
+                                builder: (context) =>
+                                    const SubscriptionPlansScreen(),
+                              ),
+                            )
+                            .then((_) => _loadProfile());
+                      },
                     ),
                     const SizedBox(height: 16),
 
@@ -344,14 +387,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           icon: Icons.document_scanner_outlined,
                           title: 'Riwayat Diagnosis',
                           subtitle: 'Lihat riwayat scan tanaman & hasil AI',
-                          badgeText:
-                              '${ProfileDemoData.completedDiagnosis} Scan',
+                          badgeText: '$_completedDiagnosis Scan',
                           badgeColor: AppTheme.softGreen,
                           badgeTextColor: AppTheme.forest,
-                          onTap: () => _showMessage(
-                            context,
-                            'Riwayat scan tanaman akan hadir di tahap riwayat.',
-                          ),
+                          onTap: () {
+                            Navigator.of(context)
+                                .push(
+                                  MaterialPageRoute(
+                                    builder: (context) =>
+                                        const DiagnosisHistoryScreen(),
+                                  ),
+                                )
+                                .then((_) => _loadProfile());
+                          },
                         ),
                         ProfileMenuItem(
                           icon: Icons.receipt_long_outlined,
@@ -391,6 +439,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             'Pengingat jadwal rawat belum aktif di versi demo.',
                           ),
                         ),
+                        if (_isAdmin)
+                          ProfileMenuItem(
+                            icon: Icons.admin_panel_settings_outlined,
+                            title: 'Dashboard Admin',
+                            subtitle: 'Moderasi laporan & data transaksi',
+                            badgeText: 'Admin',
+                            badgeColor: const Color(0xFFFFEBEE),
+                            badgeTextColor: const Color(0xFFC62828),
+                            onTap: () {
+                              Navigator.of(context).push(
+                                MaterialPageRoute(
+                                  builder: (context) =>
+                                      const AdminDashboardScreen(),
+                                ),
+                              );
+                            },
+                          ),
                       ],
                     ),
                     const SizedBox(height: 16),

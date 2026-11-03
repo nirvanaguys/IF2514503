@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../auth/widgets/auth_text_field.dart';
 import '../../marketplace/data/marketplace_demo_data.dart';
+import '../../marketplace/services/marketplace_service.dart';
 import '../services/seller_service.dart';
 
 class AddEditProductScreen extends StatefulWidget {
@@ -32,10 +34,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   late bool _isPublished;
 
   final _sellerService = SellerService();
+  final _marketplaceService = MarketplaceService();
   final _picker = ImagePicker();
 
   bool _isLoading = false;
   bool _isUploadingImage = false;
+  List<String> _dbCategories = [];
 
   @override
   void initState() {
@@ -43,15 +47,35 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     final p = widget.productToEdit;
     _nameController = TextEditingController(text: p?.name ?? '');
     _descriptionController = TextEditingController(text: p?.description ?? '');
-    _priceController = TextEditingController(text: p != null ? p.price.toString() : '');
-    _stockController = TextEditingController(text: p != null ? p.stock.toString() : '10');
+    _priceController = TextEditingController(
+      text: p != null ? p.price.toString() : '',
+    );
+    _stockController = TextEditingController(
+      text: p != null ? p.stock.toString() : '10',
+    );
     _imageUrlController = TextEditingController(text: p?.imageUrl ?? '');
-    _selectedCategory = p != null && MarketplaceDemoData.categories.contains(p.category)
+    _selectedCategory =
+        p != null && MarketplaceDemoData.categories.contains(p.category)
         ? p.category
         : (MarketplaceDemoData.categories.length > 1
-            ? MarketplaceDemoData.categories[1]
-            : 'Pupuk Organik');
+              ? MarketplaceDemoData.categories[1]
+              : 'Pupuk Organik');
     _isPublished = p?.isPublished ?? true;
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final categories = await _marketplaceService.fetchCategories();
+    if (mounted) {
+      setState(() {
+        _dbCategories = categories.where((c) => c != 'Semua').toList();
+        // Pastikan kategori terpilih ada dalam daftar
+        if (!_dbCategories.contains(_selectedCategory) &&
+            _dbCategories.isNotEmpty) {
+          _selectedCategory = _dbCategories.first;
+        }
+      });
+    }
   }
 
   @override
@@ -104,9 +128,8 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
     } catch (e) {
       if (mounted) {
         setState(() => _isUploadingImage = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Gagal memilih foto: $e')),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text('Gagal memilih foto: $e')));
       }
     }
   }
@@ -133,7 +156,10 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         await _sellerService.updateProduct(updated);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Produk berhasil diperbarui!'), backgroundColor: AppTheme.forest),
+          const SnackBar(
+            content: Text('Produk berhasil diperbarui!'),
+            backgroundColor: AppTheme.forest,
+          ),
         );
         Navigator.of(context).pop(updated);
       } else {
@@ -149,15 +175,17 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         );
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Produk berhasil diterbitkan ke katalog!'), backgroundColor: AppTheme.forest),
+          const SnackBar(
+            content: Text('Produk berhasil diterbitkan ke katalog!'),
+            backgroundColor: AppTheme.forest,
+          ),
         );
         Navigator.of(context).pop(created);
       }
     } catch (e) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menyimpan produk: $e')),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text('Gagal menyimpan produk: $e')));
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -166,7 +194,9 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
   @override
   Widget build(BuildContext context) {
     final isEditing = widget.productToEdit != null;
-    final availableCategories = MarketplaceDemoData.categories.where((c) => c != 'Semua').toList();
+    final availableCategories = _dbCategories.isNotEmpty
+        ? _dbCategories
+        : MarketplaceDemoData.categories.where((c) => c != 'Semua').toList();
 
     return Scaffold(
       backgroundColor: AppTheme.pageBackground,
@@ -183,7 +213,11 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
         backgroundColor: Colors.white,
         elevation: 0.5,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppTheme.forest),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 20,
+            color: AppTheme.forest,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -206,7 +240,8 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      if (_imageUrlController.text.isNotEmpty && _imageUrlController.text.startsWith('http'))
+                      if (_imageUrlController.text.isNotEmpty &&
+                          _imageUrlController.text.startsWith('http'))
                         ClipRRect(
                           borderRadius: BorderRadius.circular(16),
                           child: Image.network(
@@ -214,18 +249,31 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                             width: double.infinity,
                             height: double.infinity,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, _, _) => const Icon(Icons.image, size: 48, color: AppTheme.forest),
+                            errorBuilder: (_, _, _) => const Icon(
+                              Icons.image,
+                              size: 48,
+                              color: AppTheme.forest,
+                            ),
                           ),
                         )
                       else
                         Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.add_photo_alternate_outlined, size: 48, color: AppTheme.forest),
+                            const Icon(
+                              Icons.add_photo_alternate_outlined,
+                              size: 48,
+                              color: AppTheme.forest,
+                            ),
                             const SizedBox(height: 8),
                             Text(
-                              _isUploadingImage ? 'Mengunggah ke Storage...' : 'Pilih Foto Produk',
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                              _isUploadingImage
+                                  ? 'Mengunggah ke Storage...'
+                                  : 'Pilih Foto Produk',
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                                fontSize: 13,
+                              ),
                             ),
                           ],
                         ),
@@ -235,15 +283,27 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                         child: Row(
                           children: [
                             IconButton(
-                              style: IconButton.styleFrom(backgroundColor: Colors.white),
-                              icon: const Icon(Icons.photo_library, color: AppTheme.forest, size: 20),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.white,
+                              ),
+                              icon: const Icon(
+                                Icons.photo_library,
+                                color: AppTheme.forest,
+                                size: 20,
+                              ),
                               tooltip: 'Buka Galeri',
                               onPressed: () => _pickImage(ImageSource.gallery),
                             ),
                             const SizedBox(width: 6),
                             IconButton(
-                              style: IconButton.styleFrom(backgroundColor: Colors.white),
-                              icon: const Icon(Icons.camera_alt, color: AppTheme.forest, size: 20),
+                              style: IconButton.styleFrom(
+                                backgroundColor: Colors.white,
+                              ),
+                              icon: const Icon(
+                                Icons.camera_alt,
+                                color: AppTheme.forest,
+                                size: 20,
+                              ),
                               tooltip: 'Ambil Foto',
                               onPressed: () => _pickImage(ImageSource.camera),
                             ),
@@ -254,7 +314,9 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                         Container(
                           color: Colors.black38,
                           child: const Center(
-                            child: CircularProgressIndicator(color: Colors.white),
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                            ),
                           ),
                         ),
                     ],
@@ -267,14 +329,20 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                   label: 'Nama Produk',
                   hintText: 'Contoh: Pupuk Cair Organik 500ml',
                   prefixIcon: Icons.shopping_bag_outlined,
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Nama produk wajib diisi' : null,
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Nama produk wajib diisi'
+                      : null,
                 ),
                 const SizedBox(height: 16),
 
                 // Dropdown Kategori
                 const Text(
                   'Kategori Produk',
-                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF101F16)),
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF101F16),
+                  ),
                 ),
                 const SizedBox(height: 6),
                 Container(
@@ -289,10 +357,15 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                       value: _selectedCategory,
                       isExpanded: true,
                       items: availableCategories.map((c) {
-                        return DropdownMenuItem<String>(value: c, child: Text(c));
+                        return DropdownMenuItem<String>(
+                          value: c,
+                          child: Text(c),
+                        );
                       }).toList(),
                       onChanged: (val) {
-                        if (val != null) setState(() => _selectedCategory = val);
+                        if (val != null) {
+                          setState(() => _selectedCategory = val);
+                        }
                       },
                     ),
                   ),
@@ -309,8 +382,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                         prefixIcon: Icons.payments_outlined,
                         keyboardType: TextInputType.number,
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Harga wajib diisi';
-                          if (int.tryParse(v.trim()) == null) return 'Harus angka bulat';
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Harga wajib diisi';
+                          }
+                          if (int.tryParse(v.trim()) == null) {
+                            return 'Harus angka bulat';
+                          }
                           return null;
                         },
                       ),
@@ -324,8 +401,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                         prefixIcon: Icons.inventory_2_outlined,
                         keyboardType: TextInputType.number,
                         validator: (v) {
-                          if (v == null || v.trim().isEmpty) return 'Stok wajib diisi';
-                          if (int.tryParse(v.trim()) == null) return 'Harus angka';
+                          if (v == null || v.trim().isEmpty) {
+                            return 'Stok wajib diisi';
+                          }
+                          if (int.tryParse(v.trim()) == null) {
+                            return 'Harus angka';
+                          }
                           return null;
                         },
                       ),
@@ -337,9 +418,12 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 AuthTextField(
                   controller: _descriptionController,
                   label: 'Deskripsi Produk',
-                  hintText: 'Jelaskan kegunaan, takaran pemakaian, dan manfaat...',
+                  hintText:
+                      'Jelaskan kegunaan, takaran pemakaian, dan manfaat...',
                   prefixIcon: Icons.notes_outlined,
-                  validator: (v) => v == null || v.trim().isEmpty ? 'Deskripsi produk wajib diisi' : null,
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Deskripsi produk wajib diisi'
+                      : null,
                 ),
                 const SizedBox(height: 16),
 
@@ -352,8 +436,14 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                 const SizedBox(height: 16),
 
                 SwitchListTile(
-                  title: const Text('Publikasikan di Katalog', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
-                  subtitle: const Text('Produk dapat dilihat dan dibeli oleh pelanggan', style: TextStyle(fontSize: 12, color: AppTheme.mutedText)),
+                  title: const Text(
+                    'Publikasikan di Katalog',
+                    style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                  ),
+                  subtitle: const Text(
+                    'Produk dapat dilihat dan dibeli oleh pelanggan',
+                    style: TextStyle(fontSize: 12, color: AppTheme.mutedText),
+                  ),
                   value: _isPublished,
                   activeThumbColor: AppTheme.forest,
                   contentPadding: EdgeInsets.zero,
@@ -367,17 +457,25 @@ class _AddEditProductScreenState extends State<AddEditProductScreen> {
                     backgroundColor: AppTheme.forest,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
                       : Text(
                           isEditing ? 'Simpan Perubahan' : 'Terbitkan Produk',
-                          style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                          style: const TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                 ),
               ],

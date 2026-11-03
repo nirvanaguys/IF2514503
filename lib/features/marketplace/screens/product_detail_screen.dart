@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../auth/services/auth_service.dart';
+import '../../admin/models/admin_models.dart';
+import '../../admin/services/admin_service.dart';
 import '../models/product_model.dart';
 import '../services/wishlist_service.dart';
+import '../widgets/product_reviews_section.dart';
 
 class ProductDetailScreen extends StatefulWidget {
   final ProductModel product;
@@ -76,6 +80,90 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
     );
   }
 
+  Future<void> _showReportDialog() async {
+    final user = _authService.currentUser;
+    if (user == null) {
+      _showMessage('Silakan masuk ke akun Anda untuk melaporkan produk.');
+      return;
+    }
+
+    String? selectedReason;
+
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+              title: const Text('Laporkan Produk'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text(
+                    'Pilih alasan laporan:',
+                    style: TextStyle(fontSize: 13, color: AppTheme.mutedText),
+                  ),
+                  const SizedBox(height: 10),
+                  ...ReportReasons.all.map((reason) {
+                    return RadioListTile<String>(
+                      title: Text(reason, style: const TextStyle(fontSize: 13)),
+                      value: reason,
+                      groupValue: selectedReason,
+                      activeColor: AppTheme.forest,
+                      dense: true,
+                      contentPadding: EdgeInsets.zero,
+                      onChanged: (val) {
+                        setDialogState(() => selectedReason = val);
+                      },
+                    );
+                  }),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.of(ctx).pop(false),
+                  child: const Text('Batal'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFC62828),
+                    foregroundColor: Colors.white,
+                  ),
+                  onPressed: selectedReason != null
+                      ? () => Navigator.of(ctx).pop(true)
+                      : null,
+                  child: const Text('Kirim Laporan'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    if (confirmed != true || selectedReason == null || !mounted) return;
+
+    try {
+      final adminService = AdminService();
+      await adminService.submitReport(
+        reporterId: user.id,
+        productId: widget.product.id,
+        reason: selectedReason!,
+      );
+      if (mounted) {
+        _showMessage('Laporan berhasil dikirim. Terima kasih!');
+      }
+    } catch (e) {
+      if (mounted) {
+        _showMessage('Gagal mengirim laporan: $e');
+      }
+    }
+  }
+
   String get quantityText => _quantity > 1 ? '$_quantity x' : '';
 
   @override
@@ -98,10 +186,23 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
         backgroundColor: Colors.white,
         elevation: 0.5,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppTheme.forest),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 20,
+            color: AppTheme.forest,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(
+              Icons.flag_outlined,
+              color: AppTheme.mutedText,
+              size: 22,
+            ),
+            tooltip: 'Laporkan Produk',
+            onPressed: _showReportDialog,
+          ),
           IconButton(
             icon: Icon(
               _isWishlisted ? Icons.favorite : Icons.favorite_border,
@@ -131,12 +232,19 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                   product.imageUrl,
                                   fit: BoxFit.cover,
                                   errorBuilder: (_, _, _) => const Center(
-                                    child: Icon(Icons.image_not_supported,
-                                        size: 64, color: AppTheme.mutedText),
+                                    child: Icon(
+                                      Icons.image_not_supported,
+                                      size: 64,
+                                      color: AppTheme.mutedText,
+                                    ),
                                   ),
                                 )
                               : const Center(
-                                  child: Icon(Icons.eco, size: 72, color: AppTheme.forest),
+                                  child: Icon(
+                                    Icons.eco,
+                                    size: 72,
+                                    color: AppTheme.forest,
+                                  ),
                                 ),
                         ),
                         // Badge Status Stok di atas gambar
@@ -144,21 +252,24 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           top: 16,
                           left: 16,
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 4,
+                            ),
                             decoration: BoxDecoration(
                               color: isOutOfStock
                                   ? const Color(0xFFC62828)
                                   : (product.isLimitedStock
-                                      ? const Color(0xFF9A6700)
-                                      : AppTheme.forest),
+                                        ? const Color(0xFF9A6700)
+                                        : AppTheme.forest),
                               borderRadius: BorderRadius.circular(20),
                             ),
                             child: Text(
                               isOutOfStock
                                   ? 'Stok Habis'
                                   : (product.isLimitedStock
-                                      ? 'Sisa ${product.stock} Unit'
-                                      : 'Stok Tersedia (${product.stock})'),
+                                        ? 'Sisa ${product.stock} Unit'
+                                        : 'Stok Tersedia (${product.stock})'),
                               style: const TextStyle(
                                 color: Colors.white,
                                 fontSize: 11,
@@ -183,7 +294,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 8,
+                                vertical: 3,
+                              ),
                               decoration: BoxDecoration(
                                 color: AppTheme.softGreen,
                                 borderRadius: BorderRadius.circular(8),
@@ -199,7 +313,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             ),
                             Row(
                               children: [
-                                const Icon(Icons.star, size: 18, color: Color(0xFFFFA000)),
+                                const Icon(
+                                  Icons.star,
+                                  size: 18,
+                                  color: Color(0xFFFFA000),
+                                ),
                                 const SizedBox(width: 4),
                                 Text(
                                   product.rating.toStringAsFixed(1),
@@ -250,7 +368,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
 
                   // 3. Info Toko Penjual
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 20,
+                      vertical: 14,
+                    ),
                     color: Colors.white,
                     child: Row(
                       children: [
@@ -261,7 +382,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                             color: AppTheme.softGreen,
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          child: const Icon(Icons.storefront, color: AppTheme.forest, size: 24),
+                          child: const Icon(
+                            Icons.storefront,
+                            color: AppTheme.forest,
+                            size: 24,
+                          ),
                         ),
                         const SizedBox(width: 14),
                         Expanded(
@@ -279,7 +404,11 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.verified, size: 16, color: AppTheme.forest),
+                                  const Icon(
+                                    Icons.verified,
+                                    size: 16,
+                                    color: AppTheme.forest,
+                                  ),
                                 ],
                               ),
                               const SizedBox(height: 2),
@@ -315,9 +444,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                         ),
                         const SizedBox(height: 10),
                         Text(
-                          product.description.isNotEmpty
-                              ? product.description
-                              : 'Produk pertanian bermutu tinggi untuk menunjang kesehatan dan keindahan tanaman Anda di rumah.',
+                          product.description.isNotEmpty ? product.description : 'Produk pertanian bermutu tinggi untuk menunjang kesehatan dan keindahan tanaman Anda di rumah.',
                           style: const TextStyle(
                             fontSize: 14,
                             color: Color(0xFF333333),
@@ -327,6 +454,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> {
                       ],
                     ),
                   ),
+                  const SizedBox(height: 8),
+
+                  // 5. Ulasan Pembeli
+                  ProductReviewsSection(productId: product.id),
                   const SizedBox(height: 24),
                 ],
               ),

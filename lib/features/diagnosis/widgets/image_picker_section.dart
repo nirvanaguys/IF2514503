@@ -1,4 +1,3 @@
-
 import 'package:flutter/material.dart';
 import 'package:daunku_app/core/theme/app_theme.dart';
 
@@ -26,8 +25,7 @@ class ImagePickerSection extends StatelessWidget {
           textTheme: textTheme,
           icon: Icons.photo_camera_outlined,
           title: 'Ambil Foto Langsung',
-          description:
-              'Gunakan kamera untuk memfoto daun yang bermasalah.',
+          description: 'Gunakan kamera untuk memfoto daun yang bermasalah.',
           isRecommended: true,
           isPickingImage: isPickingImage,
           onTap: onCameraTap,
@@ -38,8 +36,7 @@ class ImagePickerSection extends StatelessWidget {
           textTheme: textTheme,
           icon: Icons.collections_outlined,
           title: 'Pilih dari Galeri',
-          description:
-              'Pilih foto tanaman yang sudah tersimpan di perangkat.',
+          description: 'Pilih foto tanaman yang sudah tersimpan di perangkat.',
           isRecommended: false,
           isPickingImage: isPickingImage,
           onTap: onGalleryTap,
@@ -103,11 +100,7 @@ class _PhotoOption extends StatelessWidget {
                   color: colorScheme.surfaceContainer,
                   borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  icon,
-                  size: 29,
-                  color: AppTheme.forest,
-                ),
+                child: Icon(icon, size: 29, color: AppTheme.forest),
               ),
               const SizedBox(width: 14),
               Expanded(
@@ -148,11 +141,7 @@ class _PhotoOption extends StatelessWidget {
                       const SizedBox(height: 10),
                       const Row(
                         children: [
-                          Icon(
-                            Icons.bolt,
-                            size: 16,
-                            color: AppTheme.forest,
-                          ),
+                          Icon(Icons.bolt, size: 16, color: AppTheme.forest),
                           SizedBox(width: 4),
                           Expanded(
                             child: Text(

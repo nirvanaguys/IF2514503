@@ -26,8 +26,12 @@ class SellerProfileModel {
       storeName: json['store_name'] as String? ?? 'Toko Saya',
       description: json['description'] as String?,
       status: json['status'] as String? ?? 'active',
-      createdAt: json['created_at'] != null ? DateTime.tryParse(json['created_at'] as String) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.tryParse(json['updated_at'] as String) : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'] as String)
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'] as String)
+          : null,
     );
   }
 
@@ -58,4 +62,3 @@ class SellerProfileModel {
     );
   }
 }
-

@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
 class DiagnosisStepper extends StatelessWidget {
-  const DiagnosisStepper({
-    super.key,
-    this.currentStep = 1,
-  });
+  const DiagnosisStepper({super.key, this.currentStep = 1});
 
   final int currentStep;
 
@@ -83,13 +80,17 @@ class DiagnosisStepper extends StatelessWidget {
             width: 34,
             height: 34,
             decoration: BoxDecoration(
-              color: isActive ? colorScheme.primary : colorScheme.surfaceContainer,
+              color: isActive
+                  ? colorScheme.primary
+                  : colorScheme.surfaceContainer,
               shape: BoxShape.circle,
             ),
             child: Icon(
               icon,
               size: 18,
-              color: isActive ? colorScheme.onPrimary : colorScheme.onSurfaceVariant,
+              color: isActive
+                  ? colorScheme.onPrimary
+                  : colorScheme.onSurfaceVariant,
             ),
           ),
           const SizedBox(height: 7),
@@ -99,7 +100,9 @@ class DiagnosisStepper extends StatelessWidget {
             maxLines: 2,
             style: textTheme.labelSmall?.copyWith(
               fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
-              color: isActive ? colorScheme.primary : colorScheme.onSurfaceVariant,
+              color: isActive
+                  ? colorScheme.primary
+                  : colorScheme.onSurfaceVariant,
             ),
           ),
         ],

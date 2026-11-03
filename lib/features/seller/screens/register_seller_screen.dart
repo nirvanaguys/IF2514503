@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+
 import '../../../core/theme/app_theme.dart';
 import '../../auth/services/auth_service.dart';
 import '../../auth/widgets/auth_text_field.dart';
@@ -34,7 +35,9 @@ class _RegisterSellerScreenState extends State<RegisterSellerScreen> {
 
     final user = _authService.currentUser;
     if (user == null) {
-      setState(() => _errorMessage = 'Silakan masuk ke akun Anda terlebih dahulu.');
+      setState(
+        () => _errorMessage = 'Silakan masuk ke akun Anda terlebih dahulu.',
+      );
       return;
     }
 
@@ -63,7 +66,8 @@ class _RegisterSellerScreenState extends State<RegisterSellerScreen> {
 
       Navigator.of(context).pushReplacement(
         MaterialPageRoute(
-          builder: (context) => SellerDashboardScreen(sellerProfile: sellerProfile),
+          builder: (context) =>
+              SellerDashboardScreen(sellerProfile: sellerProfile),
         ),
       );
     } catch (e) {
@@ -91,7 +95,11 @@ class _RegisterSellerScreenState extends State<RegisterSellerScreen> {
         backgroundColor: Colors.white,
         elevation: 0.5,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new, size: 20, color: AppTheme.forest),
+          icon: const Icon(
+            Icons.arrow_back_ios_new,
+            size: 20,
+            color: AppTheme.forest,
+          ),
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
@@ -109,7 +117,9 @@ class _RegisterSellerScreenState extends State<RegisterSellerScreen> {
                   decoration: BoxDecoration(
                     color: AppTheme.softGreen,
                     borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppTheme.forest.withValues(alpha: 0.2)),
+                    border: Border.all(
+                      color: AppTheme.forest.withValues(alpha: 0.2),
+                    ),
                   ),
                   child: Row(
                     children: [
@@ -120,7 +130,11 @@ class _RegisterSellerScreenState extends State<RegisterSellerScreen> {
                           color: AppTheme.forest,
                           borderRadius: BorderRadius.circular(16),
                         ),
-                        child: const Icon(Icons.storefront, color: Colors.white, size: 32),
+                        child: const Icon(
+                          Icons.storefront,
+                          color: Colors.white,
+                          size: 32,
+                        ),
                       ),
                       const SizedBox(width: 16),
                       const Expanded(
@@ -138,7 +152,10 @@ class _RegisterSellerScreenState extends State<RegisterSellerScreen> {
                             SizedBox(height: 4),
                             Text(
                               'Jangkau ribuan pecinta tanaman yang membutuhkan pupuk, obat, dan pot.',
-                              style: TextStyle(fontSize: 12, color: AppTheme.forest),
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.forest,
+                              ),
                             ),
                           ],
                         ),
@@ -157,7 +174,10 @@ class _RegisterSellerScreenState extends State<RegisterSellerScreen> {
                     ),
                     child: Text(
                       _errorMessage!,
-                      style: const TextStyle(color: Color(0xFF93000A), fontSize: 13),
+                      style: const TextStyle(
+                        color: Color(0xFF93000A),
+                        fontSize: 13,
+                      ),
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -168,8 +188,9 @@ class _RegisterSellerScreenState extends State<RegisterSellerScreen> {
                   label: 'Nama Toko Pertanian',
                   hintText: 'Contoh: Kebun Berkah Flora',
                   prefixIcon: Icons.store_mall_directory_outlined,
-                  validator: (v) =>
-                      v == null || v.trim().isEmpty ? 'Nama toko tidak boleh kosong' : null,
+                  validator: (v) => v == null || v.trim().isEmpty
+                      ? 'Nama toko tidak boleh kosong'
+                      : null,
                 ),
                 const SizedBox(height: 16),
 
@@ -187,17 +208,25 @@ class _RegisterSellerScreenState extends State<RegisterSellerScreen> {
                     backgroundColor: AppTheme.forest,
                     foregroundColor: Colors.white,
                     padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
                   ),
                   child: _isLoading
                       ? const SizedBox(
                           height: 20,
                           width: 20,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                          child: CircularProgressIndicator(
+                            color: Colors.white,
+                            strokeWidth: 2,
+                          ),
                         )
                       : const Text(
                           'Aktifkan Toko Sekarang',
-                          style: TextStyle(fontSize: 15, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
                 ),
               ],
@@ -208,4 +237,3 @@ class _RegisterSellerScreenState extends State<RegisterSellerScreen> {
     );
   }
 }
-

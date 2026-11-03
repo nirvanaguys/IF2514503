@@ -1,8 +1,6 @@
-
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-
 
 class ImagePreviewCard extends StatelessWidget {
   const ImagePreviewCard({

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../core/theme/app_theme.dart';
 import '../../auth/services/auth_service.dart';
+import '../../marketplace/screens/add_review_screen.dart';
+import '../../marketplace/services/review_service.dart';
 import '../models/order_model.dart';
 import '../services/order_service.dart';
 
@@ -18,12 +20,29 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
   late OrderModel _order;
   final _orderService = OrderService();
   final _authService = AuthService();
+  final _reviewService = ReviewService();
   bool _isCancelling = false;
+  Set<String> _reviewedProductIds = {};
 
   @override
   void initState() {
     super.initState();
     _order = widget.order;
+    _loadReviewedProducts();
+  }
+
+  Future<void> _loadReviewedProducts() async {
+    if (_order.status != 'delivered') return;
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    final ids = await _reviewService.getReviewedProductIds(
+      userId: user.id,
+      orderId: _order.id,
+    );
+    if (mounted) {
+      setState(() => _reviewedProductIds = ids);
+    }
   }
 
   void _showMessage(String message) {
@@ -359,6 +378,132 @@ class _OrderDetailScreenState extends State<OrderDetailScreen> {
               ),
             ),
             const SizedBox(height: 16),
+
+            // Tombol Beri Ulasan (hanya untuk delivered)
+            if (_order.status == 'delivered') ...[
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: const Color(0xFFE8EEE9)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Beri Ulasan Produk',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Text(
+                      'Bagikan pengalaman Anda untuk membantu pembeli lain.',
+                      style: TextStyle(fontSize: 12, color: AppTheme.mutedText),
+                    ),
+                    const SizedBox(height: 12),
+                    ..._order.items.map((item) {
+                      final productId = item.productId ?? '';
+                      final alreadyReviewed = _reviewedProductIds.contains(
+                        productId,
+                      );
+
+                      return Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(
+                                item.productName,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            if (alreadyReviewed)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppTheme.softGreen,
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Icon(
+                                      Icons.check,
+                                      size: 14,
+                                      color: AppTheme.forest,
+                                    ),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Sudah Diulas',
+                                      style: TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppTheme.forest,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              )
+                            else if (productId.isNotEmpty)
+                              OutlinedButton(
+                                onPressed: () {
+                                  Navigator.of(context)
+                                      .push(
+                                        MaterialPageRoute(
+                                          builder: (context) => AddReviewScreen(
+                                            orderItem: item,
+                                            orderId: _order.id,
+                                          ),
+                                        ),
+                                      )
+                                      .then((result) {
+                                        if (result == true) {
+                                          _loadReviewedProducts();
+                                        }
+                                      });
+                                },
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppTheme.forest,
+                                  side: const BorderSide(
+                                    color: AppTheme.forest,
+                                  ),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 12,
+                                    vertical: 6,
+                                  ),
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                ),
+                                child: const Text(
+                                  'Ulas',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+            ],
 
             // Tombol Batalkan Pesanan (hanya untuk pending_payment)
             if (_order.status == 'pending_payment')

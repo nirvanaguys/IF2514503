@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' as supa;
+
 import '../../../core/errors/app_exception.dart';
 import '../../marketplace/models/product_model.dart';
 import '../models/seller_profile_model.dart';
@@ -10,7 +11,7 @@ class SellerService {
   static final List<ProductModel> _cachedSellerProducts = [];
 
   SellerService({supa.SupabaseClient? client})
-      : _client = client ?? _resolveClient();
+    : _client = client ?? _resolveClient();
 
   static supa.SupabaseClient? _resolveClient() {
     try {
@@ -170,7 +171,11 @@ class SellerService {
           'is_published': true,
         };
 
-        final response = await client.from('products').insert(payload).select().single();
+        final response = await client
+            .from('products')
+            .insert(payload)
+            .select()
+            .single();
         final saved = ProductModel.fromJson(response);
         _cachedSellerProducts.insert(0, saved);
         return saved;
@@ -192,13 +197,22 @@ class SellerService {
     }
 
     if (client != null && product.sellerId != null) {
+      // Validasi ownership: seller_id harus cocok dengan auth user
+      final currentUserId = client.auth.currentUser?.id;
+      if (currentUserId == null || currentUserId != product.sellerId) {
+        debugPrint('Notice updateProduct: unauthorized seller_id mismatch');
+        return product;
+      }
+
       try {
         final payload = {
           'name': product.name,
           'description': product.description,
           'price': product.price,
           'stock': product.stock,
-          'image_paths': product.images.isNotEmpty ? product.images : [product.imageUrl],
+          'image_paths': product.images.isNotEmpty
+              ? product.images
+              : [product.imageUrl],
           'is_published': product.isPublished,
           'updated_at': DateTime.now().toIso8601String(),
         };
@@ -216,18 +230,31 @@ class SellerService {
     return product;
   }
 
-  /// Menghapus produk dari toko.
+  /// Soft-delete produk dari toko (set is_published = false).
+  /// Riwayat pesanan tetap utuh karena produk tidak dihapus dari database.
   Future<void> deleteProduct(String productId, String sellerId) async {
+    // Hapus dari cache lokal
     _cachedSellerProducts.removeWhere((p) => p.id == productId);
 
     final client = _client;
     if (client != null && sellerId.isNotEmpty) {
       try {
+        // Gunakan session auth user sebagai pemilik, bukan parameter bebas
+        final currentUserId = client.auth.currentUser?.id;
+        if (currentUserId == null || currentUserId != sellerId) {
+          debugPrint('Notice deleteProduct: unauthorized seller_id mismatch');
+          return;
+        }
+
+        // Soft delete: nonaktifkan produk, bukan menghapusnya
         await client
             .from('products')
-            .delete()
+            .update({
+              'is_published': false,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
             .eq('id', productId)
-            .eq('seller_id', sellerId);
+            .eq('seller_id', currentUserId);
       } catch (e) {
         debugPrint('Notice deleteProduct Supabase: $e');
       }
@@ -244,10 +271,16 @@ class SellerService {
     if (client == null) return null;
 
     try {
-      final sanitizedName = fileName.replaceAll(RegExp(r'[^a-zA-Z0-9._-]'), '_');
-      final path = '$sellerId/${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
+      final sanitizedName = fileName.replaceAll(
+        RegExp(r'[^a-zA-Z0-9._-]'),
+        '_',
+      );
+      final path =
+          '$sellerId/${DateTime.now().millisecondsSinceEpoch}_$sanitizedName';
 
-      await client.storage.from('products').uploadBinary(
+      await client.storage
+          .from('products')
+          .uploadBinary(
             path,
             bytes,
             fileOptions: const supa.FileOptions(
@@ -263,5 +296,78 @@ class SellerService {
       return null;
     }
   }
-}
 
+  /// Mengambil pesanan masuk yang berkaitan dengan produk penjual ini.
+  Future<List<Map<String, dynamic>>> fetchSellerOrders(String sellerId) async {
+    final client = _client;
+    if (client != null && sellerId.isNotEmpty) {
+      try {
+        // Ambil order items milik penjual ini, beserta data order
+        final response = await client
+            .from('order_items')
+            .select(
+              '*, orders(id, buyer_id, status, subtotal, shipping_cost, total, shipping_address_snapshot, payment_provider, payment_reference, created_at)',
+            )
+            .eq('seller_id', sellerId)
+            .order('orders(created_at)', ascending: false);
+
+        return (response as List<dynamic>)
+            .map((item) => item as Map<String, dynamic>)
+            .toList();
+      } catch (e) {
+        debugPrint('Notice fetchSellerOrders Supabase: $e');
+      }
+    }
+    return [];
+  }
+
+  /// Memperbarui status pesanan oleh penjual.
+  /// Hanya transisi status yang valid yang diperbolehkan.
+  Future<bool> updateOrderStatus(
+    String orderId,
+    String sellerId,
+    String newStatus,
+  ) async {
+    // Validasi transisi status yang diizinkan untuk penjual
+    const allowedStatuses = ['processing', 'shipped'];
+    if (!allowedStatuses.contains(newStatus)) {
+      debugPrint(
+        'Notice updateOrderStatus: status "$newStatus" not allowed for seller',
+      );
+      return false;
+    }
+
+    final client = _client;
+    if (client != null && sellerId.isNotEmpty) {
+      try {
+        // Verifikasi bahwa penjual memiliki item di pesanan ini
+        final itemCheck = await client
+            .from('order_items')
+            .select('id')
+            .eq('order_id', orderId)
+            .eq('seller_id', sellerId)
+            .limit(1);
+
+        if ((itemCheck as List<dynamic>).isEmpty) {
+          debugPrint(
+            'Notice updateOrderStatus: seller has no items in this order',
+          );
+          return false;
+        }
+
+        await client
+            .from('orders')
+            .update({
+              'status': newStatus,
+              'updated_at': DateTime.now().toIso8601String(),
+            })
+            .eq('id', orderId);
+
+        return true;
+      } catch (e) {
+        debugPrint('Notice updateOrderStatus Supabase: $e');
+      }
+    }
+    return false;
+  }
+}

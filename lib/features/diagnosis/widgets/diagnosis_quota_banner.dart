@@ -50,7 +50,9 @@ class DiagnosisQuotaBanner extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   'Demo: $remainingQuota dari $totalQuota diagnosis tersedia',
-                  style: textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: colorScheme.onSurfaceVariant,
+                  ),
                 ),
               ],
             ),
