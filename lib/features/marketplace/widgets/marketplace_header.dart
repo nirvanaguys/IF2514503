@@ -1,21 +1,25 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../cart/services/cart_service.dart';
 
 class MarketplaceHeader extends StatelessWidget {
   const MarketplaceHeader({
     super.key,
     required this.onNotificationTap,
     this.onProfileTap,
+    this.onCartTap,
   });
 
   final VoidCallback onNotificationTap;
   final VoidCallback? onProfileTap;
+  final VoidCallback? onCartTap;
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final cartService = CartService();
 
     return ClipRect(
       child: BackdropFilter(
@@ -59,6 +63,47 @@ class MarketplaceHeader extends StatelessWidget {
                   ],
                 ),
               ),
+
+              // Cart Button dengan Badge Counter
+              ValueListenableBuilder<int>(
+                valueListenable: cartService.cartCountNotifier,
+                builder: (context, count, _) {
+                  return Stack(
+                    alignment: Alignment.center,
+                    children: [
+                      IconButton(
+                        tooltip: 'Keranjang Belanja',
+                        onPressed: onCartTap,
+                        icon: const Icon(Icons.shopping_cart_outlined, color: AppTheme.forest),
+                      ),
+                      if (count > 0)
+                        Positioned(
+                          top: 6,
+                          right: 6,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: const BoxDecoration(
+                              color: Color(0xFFC62828),
+                              shape: BoxShape.circle,
+                            ),
+                            constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                            child: Text(
+                              '$count',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontSize: 9,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        ),
+                    ],
+                  );
+                },
+              ),
+
+              // Notification Button
               Stack(
                 alignment: Alignment.center,
                 children: [
@@ -82,6 +127,8 @@ class MarketplaceHeader extends StatelessWidget {
                 ],
               ),
               const SizedBox(width: 4),
+
+              // Profile Avatar
               GestureDetector(
                 onTap: onProfileTap,
                 child: const CircleAvatar(
